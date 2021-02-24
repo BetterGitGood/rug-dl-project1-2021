@@ -55,17 +55,25 @@ def show_random_Images():
 class Naive_Student(nn.Module):
     def __init__(self):
         super(Naive_Student, self).__init__()
+        self.decode = nn.Linear(1024, 4096)
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc1 = nn.Linear(16 * 13 * 13, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
 
     def forward(self, x):
+        x = x.view(4, 3,1024)
+        # print(x.size())
+        x = self.decode(x)
+        x= x.view(4, 3, 64, 64)
+        # print(x.size())
         x = self.pool(F.relu(self.conv1(x)))
+        # print(x.size())
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 5 * 5)
+        # print(x.size())
+        x = x.view(-1, 16 * 13 * 13)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -97,16 +105,23 @@ def train_network(net, criterion, optimizer):
 
     print('Finished Training')
 
-# All models are taken from the model library in pytorchvision
-# https://pytorch.org/hub/pytorch_vision_resnet/
+# All ResNet models are taken from the model library in pytorchvision
 
 model_list = []
-model_list.append(Naive_Student().to(device))
-model_list.append(models.resnet18().to(device))
+# model_list.append(Naive_Student().to(device))
+# model_list.append(models.resnet18().to(device))
+# model_list.append(models.resnet34().to(device))
+# model_list.append(models.resnet50().to(device))
+# model_list.append(models.resnet101().to(device))
 
 for model in model_list:
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-    # train_network(model, criterion, optimizer)
+    train_network(model, criterion, optimizer)
+
+for model in model_list:
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    train_network(model, criterion, optimizer)
 
 print("End")
