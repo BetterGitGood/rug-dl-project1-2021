@@ -1,6 +1,7 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
+import torchvision.models as models
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,6 +16,8 @@ print(device)
 
 download_data = False
 
+# https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html
+# Loading data, training and setting all that up.
 transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
@@ -49,9 +52,9 @@ def show_random_Images():
     # print labels
     print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
 
-class Net(nn.Module):
+class Naive_Student(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(Naive_Student, self).__init__()
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
@@ -69,7 +72,6 @@ class Net(nn.Module):
         return x
 
 def train_network(net, criterion, optimizer):
-    net.to(device)
     for epoch in range(2):  # loop over the dataset multiple times
 
         running_loss = 0.0
@@ -95,11 +97,16 @@ def train_network(net, criterion, optimizer):
 
     print('Finished Training')
 
-net = Net()
-model = torch.hub.load('pytorch/vision:v0.6.0', 'resnet18', pretrained=True)
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+# All models are taken from the model library in pytorchvision
+# https://pytorch.org/hub/pytorch_vision_resnet/
 
-train_network(model, criterion, optimizer)
+model_list = []
+model_list.append(Naive_Student().to(device))
+model_list.append(models.resnet18().to(device))
+
+for model in model_list:
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    # train_network(model, criterion, optimizer)
 
 print("End")
