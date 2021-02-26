@@ -18,7 +18,8 @@ import pandas as pd
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
-download_data = False
+# turn to false if you already have the data.
+download_data = True
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
