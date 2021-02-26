@@ -10,6 +10,7 @@ import torch.optim as optim
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
@@ -79,10 +80,17 @@ class Naive_Student(nn.Module):
         x = self.fc3(x)
         return x
 
-def train_network(net, criterion, optimizer):
-    for epoch in range(2):  # loop over the dataset multiple times
-
+def train_network(net, criterion, optimizer, name):
+    loss_list = []
+    acc_list = []
+    epoch_list = []
+    step_list = []
+    
+    one_back_acc = 0
+    for epoch in range(10):  # loop over the dataset multiple times
         running_loss = 0.0
+        correct = 0
+        total = 0
         for i, data in enumerate(trainloader, 0):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data[0].to(device), data[1].to(device)
@@ -95,33 +103,76 @@ def train_network(net, criterion, optimizer):
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
+            
+            # accuracy
+            _, predicted = torch.max(outputs.data, 1)
+            correct += (predicted == labels).sum().item()
 
             # print statistics
             running_loss += loss.item()
+            total += labels.size(0)
             if i % 2000 == 1999:    # print every 2000 mini-batches
                 print('[%d, %5d] loss: %.3f' %
                     (epoch + 1, i + 1, running_loss / 2000))
+                print('[%d, %5d] accuracy: %.3f' %
+                    (epoch + 1, i + 1, 100 * correct / total))
+                
+                loss_list.append(running_loss / 2000)
+                acc_list.append(100 * correct / total)
+                epoch_list.append(epoch+1)
+                step_list.append(i+1)
                 running_loss = 0.0
+                correct = 0
+                total = 0
 
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for data in testloader:
+                test_in, labels = data[0].to(device), data[1].to(device)
+                outputs = net(test_in)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+
+        test_acc = (100 * correct / total)
+
+        print('Accuracy of the network on the 10000 test images: %d %%' % test_acc)
+        if test_acc < one_back_acc:
+            break
+        one_back_acc = test_acc
+
+    running_results = {'Loss': loss_list, 'Accuracy': acc_list, 'Epoch': epoch_list, 'Step': step_list}
+    df = pd.DataFrame(running_results, columns = ['Loss', 'Accuracy', 'Epoch', 'Step'])
+    path = './results/running-results' + name
+    df.to_csv(path)
     print('Finished Training')
 
 # All ResNet models are taken from the model library in pytorchvision
 
 model_list = []
 # model_list.append(Naive_Student().to(device))
-# model_list.append(models.resnet18().to(device))
-# model_list.append(models.resnet34().to(device))
-# model_list.append(models.resnet50().to(device))
-# model_list.append(models.resnet101().to(device))
+model_list.append(models.resnet18().to(device))
+model_list.append(models.resnet34().to(device))
+model_list.append(models.resnet50().to(device))
+model_list.append(models.resnet101().to(device))
 
+modelnr = 0
 for model in model_list:
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-    train_network(model, criterion, optimizer)
-
+    optimizer = optim.AdamW(model.parameters())
+    train_network(model, criterion, optimizer, (str(modelnr) + 'AdamW'))
+    PATH = './cifar_adamW_' + str(modelnr) + '_net.pth'
+    torch.save(model.state_dict(), PATH)
+    modelnr = modelnr + 1
+    
+modelnr = 0
 for model in model_list:
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    train_network(model, criterion, optimizer)
+    optimizer = optim.Adam(model.parameters())
+    train_network(model, criterion, optimizer, (str(modelnr) + 'Adam'))
+    PATH = './cifar_adam_' + str(modelnr) + '_net.pth'
+    torch.save(model.state_dict(), PATH)
+    modelnr = modelnr + 1
 
 print("End")
