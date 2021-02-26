@@ -1,3 +1,5 @@
+# https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html
+# A part of the code has been taken and edited from this guide.
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -12,48 +14,29 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+# running on CPU or GPU
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(device)
 
 download_data = False
 
-# https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html
-# Loading data, training and setting all that up.
 transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
 trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                         download=download_data, transform=transform)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
                                           shuffle=True, num_workers=0)
-
 testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                        download=download_data, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=4,
                                          shuffle=False, num_workers=0)
-
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
-
-def imshow(img):
-    img = img / 2 + 0.5     # unnormalize
-    npimg = img.numpy()
-    plt.imshow(np.transpose(npimg, (1, 2, 0)))
-    plt.show()
-
-def show_random_Images():
-    # get some random training images
-    dataiter = iter(trainloader)
-    images, labels = dataiter.next()
-
-    # show images
-    imshow(torchvision.utils.make_grid(images))
-    # print labels
-    print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
-
+# Naive Student Network Setup
 class Naive_Student(nn.Module):
+    # defining network parts
     def __init__(self):
         super(Naive_Student, self).__init__()
         self.decode = nn.Linear(1024, 4096)
@@ -67,31 +50,25 @@ class Naive_Student(nn.Module):
         self.fc3 = nn.Linear(200, 100)
         self.fc4 = nn.Linear(100, 10)
 
+    # defining model calculations
     def forward(self, x):
         x = x.view(4, 3,1024)
-
         x = self.decode(x)
         x= x.view(4, 3, 64, 64)
         x = self.pool(F.relu(self.conv1(x)))
-
         x = self.pool(F.relu(self.conv2(x)))
- 
         x = x.view(-1, 16 * 13 * 13)
- 
         x = F.relu(self.fc1(x))
-
         x = x.view(4, 3, 32, 32)
-
         x = self.pool(F.relu(self.conv3(x)))
         x = self.pool(F.relu(self.conv4(x)))
-
         x = x.view(-1, 16 * 5 * 5)
-
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         x = self.fc4(x)
         return x
 
+# training function
 def train_network(net, criterion, optimizer, name):
     loss_list = []
     acc_list = []
@@ -137,6 +114,7 @@ def train_network(net, criterion, optimizer, name):
                 correct = 0
                 total = 0
 
+        # checking testing accuracy after every loop
         correct = 0
         total = 0
         with torch.no_grad():
@@ -148,27 +126,30 @@ def train_network(net, criterion, optimizer, name):
                 correct += (predicted == labels).sum().item()
 
         test_acc = (100 * correct / total)
-
         print('Accuracy of the network on the 10000 test images: %d %%' % test_acc)
+
+        # early stopping
         if test_acc < one_back_acc:
             break
         one_back_acc = test_acc
 
+    # saving the results
     running_results = {'Loss': loss_list, 'Accuracy': acc_list, 'Epoch': epoch_list, 'Step': step_list}
     df = pd.DataFrame(running_results, columns = ['Loss', 'Accuracy', 'Epoch', 'Step'])
     path = './results/running-results' + name
     df.to_csv(path)
     print('Finished Training')
 
-# All ResNet models are taken from the model library in pytorchvision
-
+# making a list of models
+# All ResNet models are taken from the model library in pytorchvision 
 model_list = []
-# model_list.append(models.resnet18().to(device))
-# model_list.append(models.resnet34().to(device))
-# model_list.append(models.resnet50().to(device))
-# model_list.append(models.resnet101().to(device))
+model_list.append(models.resnet18().to(device))
+model_list.append(models.resnet34().to(device))
+model_list.append(models.resnet50().to(device))
+model_list.append(models.resnet101().to(device))
 model_list.append(Naive_Student().to(device))
 
+# testing all models with AdamW
 modelnr = 4
 for model in model_list:
     criterion = nn.CrossEntropyLoss()
@@ -178,6 +159,7 @@ for model in model_list:
     torch.save(model.state_dict(), PATH)
     modelnr = modelnr + 1
     
+# testing all models with Adam
 modelnr = 4
 for model in model_list:
     criterion = nn.CrossEntropyLoss()
