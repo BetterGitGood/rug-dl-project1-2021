@@ -60,24 +60,36 @@ class Naive_Student(nn.Module):
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 13 * 13, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 10)
+        self.fc1 = nn.Linear(16 * 13 * 13, 3072)
+        self.conv3 = nn.Conv2d(3, 6, 5)
+        self.conv4 = nn.Conv2d(6, 16, 5)
+        self.fc2 = nn.Linear(16 * 5 * 5, 200)
+        self.fc3 = nn.Linear(200, 100)
+        self.fc4 = nn.Linear(100, 10)
 
     def forward(self, x):
         x = x.view(4, 3,1024)
-        # print(x.size())
+
         x = self.decode(x)
         x= x.view(4, 3, 64, 64)
-        # print(x.size())
         x = self.pool(F.relu(self.conv1(x)))
-        # print(x.size())
+
         x = self.pool(F.relu(self.conv2(x)))
-        # print(x.size())
+ 
         x = x.view(-1, 16 * 13 * 13)
+ 
         x = F.relu(self.fc1(x))
+
+        x = x.view(4, 3, 32, 32)
+
+        x = self.pool(F.relu(self.conv3(x)))
+        x = self.pool(F.relu(self.conv4(x)))
+
+        x = x.view(-1, 16 * 5 * 5)
+
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = F.relu(self.fc3(x))
+        x = self.fc4(x)
         return x
 
 def train_network(net, criterion, optimizer, name):
@@ -151,13 +163,13 @@ def train_network(net, criterion, optimizer, name):
 # All ResNet models are taken from the model library in pytorchvision
 
 model_list = []
-# model_list.append(Naive_Student().to(device))
-model_list.append(models.resnet18().to(device))
-model_list.append(models.resnet34().to(device))
-model_list.append(models.resnet50().to(device))
-model_list.append(models.resnet101().to(device))
+# model_list.append(models.resnet18().to(device))
+# model_list.append(models.resnet34().to(device))
+# model_list.append(models.resnet50().to(device))
+# model_list.append(models.resnet101().to(device))
+model_list.append(Naive_Student().to(device))
 
-modelnr = 0
+modelnr = 4
 for model in model_list:
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters())
@@ -166,7 +178,7 @@ for model in model_list:
     torch.save(model.state_dict(), PATH)
     modelnr = modelnr + 1
     
-modelnr = 0
+modelnr = 4
 for model in model_list:
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters())
